@@ -1,28 +1,25 @@
-import time
 import pandas as pd
-import numpy as np
-import numba
-from pysptk import *
+import pickle
 from scipy.io import wavfile as io
-from functools import lru_cache
 
 
 def main():
     path_datadir = './data/data/'
     cnt = 1
-    arr_all = pd.DataFrame()
+    list_all = []
 
     # wavとlabのペアを作り結合していく
     while True:
-        print(cnt)
+        print('process file:', cnt)
         arr_lab = pd.DataFrame()
         arr_wav = pd.DataFrame()
 
         # wavデータ作成
         path_wav = path_datadir + ('%08d' % cnt) + '.wav'
-        sr, data_wav = io.read(path_wav)
-        # データが空ならdf作成終了
-        if len(data_wav) == 0:
+        try:
+            sr, data_wav = io.read(path_wav)
+        except FileNotFoundError:
+            print('finish')
             break
         arr_wav = pd.concat([arr_wav, pd.DataFrame(data_wav)])
 
@@ -36,14 +33,19 @@ def main():
 
         # wavデータとlabデータの結合
         pair_arr = pd.concat([arr_wav, arr_lab], axis=1, join='inner')
-
-        # 最終データ作成
-        arr_all = pd.concat([arr_all, pair_arr])
+        list_all.append(pair_arr)
 
         cnt += 1
-        if cnt == 101:
-            print(arr_all.shape)
-            break
+
+    # 全データをdf化
+    arr_all = pd.concat(list_all, ignore_index=True)
+
+    # 'silE'と'silB'を'sil'に変換
+    arr_all = arr_all.replace({'silB': 'sil', 'silE': 'sil'})
+
+    # pickle化
+    with open('df.pkl', mode='wb') as f:
+        pickle.dump(arr_all, f)
 
 
 def make_arr_from_per_line(content):
@@ -52,6 +54,7 @@ def make_arr_from_per_line(content):
     :param content: 1行のlabデータ
     :return:        1塊のdf
     """
+
     start_time = float(content[0])
     end_time = float(content[1])
     n_frame = int(16000 * round((end_time - start_time), 4))
@@ -62,7 +65,4 @@ def make_arr_from_per_line(content):
 
 
 if __name__ == '__main__':
-    start = time.time()
     main()
-    elapsed = time.time() - start
-    print("elapsed_time:{0}".format(elapsed) + "[sec]")
