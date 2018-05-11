@@ -28,11 +28,11 @@ def main():
 
         # labデータ作成
         path_lab = path_datadir + ('%08d' % cnt) + '.lab'
-        f = open(path_lab, "r")
-        content_list = [line.split() for line in f.readlines()]
-        # labファイル1行ずつのdfを作成し結合していく
-        for content in content_list:
-            arr_lab = make_arr_lab_per_line(content, arr_lab)
+        with open(path_lab, "r") as f:
+            content_list = [line.split() for line in f.readlines()]
+            # labファイル1行ずつのdfを作成し結合していく
+            for content in content_list:
+                arr_lab = pd.concat([arr_lab, make_arr_from_per_line(content)], ignore_index=True)
 
         # wavデータとlabデータの結合
         pair_arr = pd.concat([arr_wav, arr_lab], axis=1, join='inner')
@@ -46,15 +46,19 @@ def main():
             break
 
 
-def make_arr_lab_per_line(content, arr_lab):
+def make_arr_from_per_line(content):
+    """
+    1行のlabデータを1塊のdfにして返す
+    :param content: 1行のlabデータ
+    :return:        1塊のdf
+    """
     start_time = float(content[0])
     end_time = float(content[1])
     n_frame = int(16000 * round((end_time - start_time), 4))
     phoneme = content[2]
-    tmp_arr = pd.DataFrame([phoneme for i in range(n_frame)])
-    arr_lab = pd.concat([arr_lab, tmp_arr], ignore_index=True)
+    ret_arr = pd.DataFrame([phoneme for i in range(n_frame)])
 
-    return arr_lab
+    return ret_arr
 
 
 if __name__ == '__main__':
