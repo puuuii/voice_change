@@ -1,8 +1,13 @@
 import pickle
 import numpy as np
-import pandas as pd
-import pyworld as pw
-import math
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import OneHotEncoder, LabelEncoder
+from sklearn.model_selection import train_test_split
+from keras.layers.core import Dense, Activation, Dropout
+from keras.layers.normalization import BatchNormalization
+from keras.optimizers import Adam
+from keras.models import Sequential
+from keras.callbacks import EarlyStopping
 
 
 DIR_PICKLES = './pickles/'
@@ -17,8 +22,14 @@ def main():
     x, y = make_variables(f0, sp, phoneme)
 
     # モデル作成
+    hidden_units = [200, 200, 200]
+    model = make_model(x, y, hidden_units)
 
-    # 学習実行
+    # 学習実行（学習済みモデルはpickle保存）
+    test_ratio = 0.3
+    n_epoch = 200
+    batch_size = 200
+    train_model(model, x, y, test_ratio, n_epoch, batch_size)
 
     # 予測実行
 
@@ -56,63 +67,91 @@ def make_variables(f0, sp, phoneme):
     x = np.concatenate([np.array([f0]).T, sp], axis=1)
     y = phoneme
 
+    # onhe-hotエンコーディング実施
+    le = LabelEncoder()
+    y = le.fit_transform(y)
+    y = np.array(y).reshape(1, -1)
+    y = y.transpose()
+    ohe = OneHotEncoder()
+    y = ohe.fit_transform(y).toarray()
+
     return x, y
 
 
-def make_model():
+def make_model(x, y, hidden_units):
     """
     モデル作成
     ----------
-    :return: 学習済みモデル
+    :param x:               説明変数(f0, spの2次元)
+    :param y:               目的変数(phonemeの1次元)
+    :param hidden_units:    隠れ層リスト
+    :return:                学習済みモデル
     """
 
-    from keras.models import Sequential
-    from keras.layers import Dense, Activation, Dropout, LSTM
-    from keras.layers.wrappers import Bidirectional
-    from keras.callbacks import Callback, EarlyStopping, ModelCheckpoint
 
-    FRAME_SIZE = 2000
-    BATCH_SIZE = 32
-    EPOCHS = 60
-    STATEFUL = False
+    # 重み初期化用関数
+    def weight_variable(shape):
+        return np.sqrt(2.0 / shape[0]) * np.random.normal(size=shape)
 
-    MFCC_SIZE = 40
-    HIDDEN_SIZE = 128
-    PHONEME_SIZE = 36
+    # モデル構築
+    model = Sequential()
+    model.add(Dense(hidden_units[0], input_dim=x.shape[1], kernel_initializer=weight_variable))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dropout(0.5))
+    for n_units in hidden_units[1:]:
+        model.add(Dense(n_units))
+        model.add(BatchNormalization())
+        model.add(Activation('relu'))
+        model.add(Dropout(0.5))
+    model.add(Dense(y.shape[1], kernel_initializer=weight_variable))
+    model.add(Activation('softmax'))
 
-    if __name__ == '__main__':
-        x_all = np.load('')
-        y_all = np.load('')
-        testsize = np.shape(x_all)[0] // 10
-        testsize = testsize // BATCH_SIZE * BATCH_SIZE
-        trainsize = (np.shape(x_all)[0] - testsize) // BATCH_SIZE * BATCH_SIZE
-        x_train = x_all[-trainsize:]
-        y_train = y_all[-trainsize:]
-        x_test = x_all[:testsize]
-        y_test = y_all[:testsize]
+    model.compile(loss='categorical_crossentropy',
+                  optimizer=Adam(lr=0.01, beta_1=0.9, beta_2=0.999),
+                  metrics=['accuracy'])
 
-        model = Sequential()
-        model.add(Bidirectional(LSTM(HIDDEN_SIZE, \
-                                     return_sequences=True), input_shape=(None, MFCC_SIZE)))
-        model.add(Dropout(0.3))
-        model.add(Bidirectional(LSTM(HIDDEN_SIZE, return_sequences=True)))
-        model.add(Dropout(0.3))
-        model.add(Bidirectional(LSTM(HIDDEN_SIZE, return_sequences=True)))
-        model.add(Dropout(0.3))
-        model.add(Bidirectional(LSTM(HIDDEN_SIZE, return_sequences=True)))
-        model.add(Dropout(0.3))
-        model.add(Dense(PHONEME_SIZE))
-        model.add(Dropout(0.3))
-        model.add(Activation('softmax'))
+    # モデル情報出力
+    print(model.summary())
 
-        es = EarlyStopping(monitor='val_loss', patience=10, verbose=0, mode='auto')
-        mc = ModelCheckpoint('', \
-                             monitor='val_loss', save_best_only=False, \
-                             save_weights_only=False, mode='auto')
+    return model
 
-        model.compile(loss='categorical_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
-        model.fit(x_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, \
-                  validation_data=[x_test, y_test], callbacks=[es, mc], shuffle=True)
+
+def train_model(model, x, y, test_ratio, n_epoch, batch_size):
+    """
+    学習実行
+    --------
+    :param model:       モデル
+    :param x:           説明変数
+    :param y:           目的変数
+    :param test_ratio:  テストデータに使う比率
+    :param n_epoch:     エポック数
+    :param batch_size:  バッチサイズ
+    """
+
+    # 訓練データとテストデータに分割
+    X_train, X_test, Y_train, Y_test = train_test_split(x, y, test_size=0.1, random_state=0)
+
+    # 学習実行
+    hist = model.fit(X_train, Y_train, epochs=n_epoch,
+                     batch_size=batch_size,
+                     validation_split=test_ratio)
+
+    # 予測精度出力
+    loss_and_metrics = model.evaluate(X_test, Y_test)
+    print(loss_and_metrics)
+
+    # モデルのpickle化
+    with open(DIR_PICKLES + 'model.pkl', mode='wb') as f:
+        pickle.dump(model, f)
+
+    # 学習の可視化
+    plt.plot(range(n_epoch), hist.history['loss'], label='loss')
+    plt.plot(range(n_epoch), hist.history['val_loss'], label='val_loss')
+    plt.xlabel('epoch')
+    plt.ylabel('loss')
+    plt.legend()
+    plt.show()
 
 
 if __name__ == '__main__':

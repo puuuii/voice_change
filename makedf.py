@@ -3,6 +3,7 @@ import pickle
 import pyworld as pw
 import numpy as np
 from scipy.io import wavfile as io
+from sklearn.preprocessing import StandardScaler
 
 
 FS = 16000
@@ -107,6 +108,12 @@ def make_pickles(arr_all):
     f0 = pw.stonemask(wav_data, _f0, t, FS)         # 基本周波数の修正
     sp = pw.cheaptrick(wav_data, f0, t, FS)         # スペクトル包絡の抽出
     ap = pw.d4c(wav_data, f0, t, FS, threshold=0.3) # 非周期性指標の抽出
+
+    # データの標準化
+    stdsc = StandardScaler()
+    f0 = stdsc.fit_transform(f0.reshape(-1, 1)).reshape(1, -1)[0]
+    sp = stdsc.fit_transform(sp)
+    ap = stdsc.fit_transform(ap)
 
     # 音素データを音声データ数に合わせて抽出
     phoneme_data = pd.concat([phoneme_data, pd.Series('sil')], ignore_index=True)
