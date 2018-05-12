@@ -124,10 +124,6 @@ def make_pickles(arr_all):
     with open(DIR_PICKLES + 'ap.pkl', mode='wb') as f:
         pickle.dump(ap, f, protocol=4)
 
-    # 時間的位置
-    with open(DIR_PICKLES + 't.pkl', mode='wb') as f:
-        pickle.dump(t, f)
-
     # 音素
     with open(DIR_PICKLES + 'phoneme.pkl', mode='wb') as f:
         pickle.dump(phoneme_data, f)

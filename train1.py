@@ -12,7 +12,6 @@ FS = 16000
 def main():
     # データのロード
     f0, sp, phoneme = load_data()
-    exit()
 
     # 各学習に必要な変数作成
     x, y = make_variables(f0, sp, phoneme)
@@ -41,14 +40,6 @@ def load_data():
     with open(DIR_PICKLES + 'phoneme.pkl', 'rb') as f:
         phoneme = pickle.load(f)
 
-    # 時間的位置
-    with open(DIR_PICKLES + 't.pkl', 'rb') as f:
-        t = pickle.load(f)
-
-    # 音素データを音声データ数に合わせて抽出
-    phoneme = pd.concat([phoneme, pd.Series('sil')], ignore_index=True)
-    phoneme = np.array([phoneme.iloc[int((time*FS))] for time in t])
-
     return f0, sp, phoneme
 
 
@@ -62,8 +53,10 @@ def make_variables(f0, sp, phoneme):
     :return:        説明変数、目的変数
     """
 
+    x = np.concatenate([np.array([f0]).T, sp], axis=1)
+    y = phoneme
 
-
+    return x, y
 
 
 def make_model():
