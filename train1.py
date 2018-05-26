@@ -95,23 +95,34 @@ def make_model(x, y, hidden_units, lr):
     :return:                学習済みモデル
     """
 
-    from keras.layers.core import Activation, Dropout
+    from keras.layers.core import Activation, Dropout, Flatten, Dense
     from keras.models import Sequential
     from keras.layers.normalization import BatchNormalization
     from keras.layers.convolutional import Conv1D
     from keras.layers.pooling import MaxPooling1D
 
     model = Sequential()
-    model.add(Conv1D(128, 16, padding='same', input_shape=(1, x.shape[1])))
+    model.add(Conv1D(128, 3, padding='same', input_shape=(1, x.shape[1])))
+    model.add(Activation('relu'))
+    model.add(BatchNormalization())
+    model.add(MaxPooling1D(2, padding='same'))
+    model.add(Conv1D(256, 3, padding='same'))
+    model.add(Activation('relu'))
+    model.add(BatchNormalization())
+    model.add(MaxPooling1D(2, padding='same'))
+    model.add(Flatten())
+    model.add(Dense(512))
     model.add(BatchNormalization())
     model.add(Activation('relu'))
-    model.add(MaxPooling1D(2, padding='same'))
-    model.add(Conv1D(64, 8, padding='same'))
+    model.add(Dense(256))
     model.add(BatchNormalization())
     model.add(Activation('relu'))
-    model.add(MaxPooling1D(2, padding='same'))
-    model.add(Conv1D(y.shape[1], 8, padding='same', activation='softmax'))
-
+    model.add(Dense(128))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dense(y.shape[1]))
+    model.add(BatchNormalization())
+    model.add(Activation('softmax'))
     model.compile(loss='categorical_crossentropy',
                   optimizer='adam',
                   metrics=['accuracy'])
@@ -134,7 +145,7 @@ def train_model(model, x, y, test_ratio, n_epoch, batch_size):
     """
 
     x = x.reshape((-1, 1, x.shape[1]))
-    y = y.reshape((-1, 1, y.shape[1]))
+    # y = y.reshape((-1, 1, y.shape[1]))
     print(x.shape, y.shape)
 
     # 訓練データと評価データに分割
