@@ -151,10 +151,14 @@ def train_model(model, x, y, test_ratio, n_epoch, batch_size):
     # 訓練データと評価データに分割
     X_train, X_test, Y_train, Y_test = train_test_split(x, y, test_size=test_ratio, random_state=0)
 
+    from keras.callbacks import ModelCheckpoint
+    path = DIR_PICKLES + 'model.h5'
+    checkpointer = ModelCheckpoint(filepath=path, verbose=1, save_best_only=True)
 
     # 学習実行
     history = model.fit(X_train, Y_train, validation_split=0.2,
-                        batch_size=batch_size, epochs=n_epoch, verbose=1)
+                        batch_size=batch_size, epochs=n_epoch, verbose=1,
+                        callbacks = [checkpointer])
 
     # 予測精度出力
     score = model.evaluate(X_test, Y_test)
@@ -180,22 +184,6 @@ def train_model(model, x, y, test_ratio, n_epoch, batch_size):
 
     # モデルのpickle化
     model.save(DIR_PICKLES + 'model.h5')
-
-
-def predict():
-    """
-    予測実行
-    """
-
-    path = DIR_PICKLES + 'model_481.h'
-    model = load_model(path)
-
-    fs, wav_data = wavfile.read('say.wav')
-    wav_data = wav_data.astype(np.float)
-
-    _f0, t = pw.dio(wav_data, FS)                                 # 基本周波数の抽出
-    f0 = pw.stonemask(wav_data, _f0, t, FS)                       # 基本周波数の修正
-    sp = pw.cheaptrick(wav_data, f0, t, FS, f0_floor=750)         # スペクトル包絡の抽出
 
 
 if __name__ == '__main__':
