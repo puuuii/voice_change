@@ -19,9 +19,7 @@ def main():
     x, y = make_variables(f0, sp, ap, phoneme)
 
     # モデル作成
-    hidden_units = [128, 128, 128]
-    lr = 0.01
-    model = make_model(x, y, hidden_units, lr)
+    model = make_model(x, y)
 
     # 学習実行（学習済みモデルはpickle保存）
     test_ratio = 0.2
@@ -84,14 +82,12 @@ def make_variables(f0, sp, ap, phoneme):
     return x, y
 
 
-def make_model(x, y, hidden_units, lr):
+def make_model(x, y):
     """
     モデル作成
     ----------
     :param x:               説明変数(f0, spの2次元)
     :param y:               目的変数(phonemeの1次元)
-    :param hidden_units:    隠れ層リスト
-    :param lr:              学習率
     :return:                学習済みモデル
     """
 
@@ -145,25 +141,16 @@ def train_model(model, x, y, test_ratio, n_epoch, batch_size):
     """
 
     x = x.reshape((-1, 1, x.shape[1]))
-    # y = y.reshape((-1, 1, y.shape[1]))
     print(x.shape, y.shape)
-
-    # 訓練データと評価データに分割
-    X_train, X_test, Y_train, Y_test = train_test_split(x, y, test_size=test_ratio, random_state=0)
 
     from keras.callbacks import ModelCheckpoint
     path = DIR_PICKLES + 'model.h5'
     checkpointer = ModelCheckpoint(filepath=path, verbose=1, save_best_only=True)
 
     # 学習実行
-    history = model.fit(X_train, Y_train, validation_split=0.2,
+    history = model.fit(x, y, validation_split=test_ratio,
                         batch_size=batch_size, epochs=n_epoch, verbose=1,
                         callbacks = [checkpointer])
-
-    # 予測精度出力
-    score = model.evaluate(X_test, Y_test)
-    print('Test loss:', score[0])
-    print('Test accuracy:', score[1])
 
     # Accuracy
     plt.plot(history.history['acc'])
@@ -181,9 +168,6 @@ def train_model(model, x, y, test_ratio, n_epoch, batch_size):
     plt.xlabel('epoch')
     plt.legend(['train', 'test'], loc='upper left')
     plt.show()
-
-    # モデルのpickle化
-    model.save(DIR_PICKLES + 'model.h5')
 
 
 if __name__ == '__main__':
